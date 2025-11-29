@@ -11,6 +11,9 @@ int main() {
     char input2;
     printf("Input2");
     scanf(" %c", &input2);
+
+    while ((getchar()) != '\n'); // Clear the input buffer
+
     printf("Input3");
     char buffer[10];
     gets(buffer);
