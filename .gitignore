@@ -2,7 +2,7 @@
 /__pycache__
 /autoROP.py:Zone.Identifier
 /badfile.txt
-/fuzzing.py
+
 /out-rop.txt
 /perfect.txt
 /ropchain.txt
