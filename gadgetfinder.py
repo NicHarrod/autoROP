@@ -39,6 +39,7 @@ def extract_gadgets():
         # Store in map (Strip whitespace to be safe)
         # If a gadget appears twice, this just updates it with the same/new address (both are valid)
         gadget_map[instruction.strip()] = address
+    print(gadget_map)
 
 
 

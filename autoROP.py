@@ -239,6 +239,7 @@ if __name__ == "__main__":
 
     try:
         if use_file_mode:
+            
             subprocess.run([f"./{args.program}", filename])
         else:
             # We use shell=True here to easily handle the piping: (cat badfile; cat) | ./vuln
