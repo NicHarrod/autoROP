@@ -11,14 +11,13 @@ int main() {
     printf("Input2: ");
     scanf(" %c", &input2);
 
-    // Clear the input buffer without getchar()
+    // Clear the input buffer withoAut getchar()
     scanf("%*[^\n]");
     scanf("%*c");
 
     printf("Input3: ");
     char buffer[10];
-    gets(buffer);   // unsafe, but kept because you requested it
-
+    gets(buffer);   // unsafe
     printf("You entered: %s\n", buffer);
 
     return 0;

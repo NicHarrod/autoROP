@@ -8,22 +8,12 @@ import struct
 import argparse
 import time
 
-# def find_offset(vulnerable_program, fileinput=True):
-#     # either file inputs or stdio
-#     # looking for a seg fault
-#     # for now if not fileinput or stdio just exit
 
-#     # start with trying a file input
-#     if fileinput:
-#         return file_input_mode(vulnerable_program)
-#     else:
-#         return stdio_mode(vulnerable_program)
 def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
     if print_debug:
         print(f"[*] Starting Interactive Fuzzer on {vulnerable_program}...")
 
-    # The payload we want to inject (Cyclic Pattern)
-    # We add a newline at the end to ensure scanf triggers if it eats this
+
     pattern_len = 5000
     cyclic_pattern = generate_cyclic_pattern(pattern_len)
     # Truncate to desired length
@@ -40,35 +30,35 @@ def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
         if print_debug:
             print(f"--- Attempting Depth: {depth} ---")
         
-        # Start the process anew for every attempt
+        # Start the process for every attempt
         proc = subprocess.Popen(
             [f"./{vulnerable_program}"],
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, # We can capture stdout to see prompts
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
 
         try:
-            # 1. Send the "Menu Navigation" inputs (1\n)
+            # 1. Send inputs (1\n)
             for i in range(depth):
-                if proc.poll() is not None: break # Process already died
+                if proc.poll() is not None: break # already died
                 proc.stdin.write(b"1\n")
                 proc.stdin.flush()
                 # Tiny sleep to let the C program process the scanf
                 time.sleep(0.05) 
 
-            # 2. Check if it's still alive before sending the payload
+            # Check if it's still alive 
             if proc.poll() is None:
-                # 3. Send the PAYLOAD
+                
                 if print_debug:
                     print(f"    -> Sending {len(cyclic_pattern)} byte payload...")
                 proc.stdin.write(cyclic_pattern)
                 proc.stdin.flush()
                 
-                # 4. Wait a moment for the crash
+                # Wait a moment for the crash
                 time.sleep(0.2)
             
-            # 5. Check return code
+            # Check return code
             return_code = proc.poll()
             
             if return_code == -11:
@@ -76,7 +66,7 @@ def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
                     print(f"\n[!!!] SEGFAULT DETECTED at Depth {depth}!")
                     print(f"Payload structure: ('1\\n' * {depth}) + CYCLIC_PATTERN")
                 
-                # Create the reproduction file for GDB
+
                 prefix = (b"1\n" * depth) 
 
                 
@@ -92,59 +82,8 @@ def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
         print("[-] No segfault found.")
     return None
 
-def file_input_mode(vulnerable_program):
-    
-    l=0
-    r=1000000000
-    while l < r:
-        mid = (l + r) // 2
-        input_data = b"A" * mid
-        with open("fuzz_input", "wb") as f:
-            f.write(input_data)
 
-        
-        try:
-            # ignore stdout
-            result = subprocess.run([f"./{vulnerable_program}", "fuzz_input"], stdout=subprocess.DEVNULL, timeout=5)
-            
-            if result.returncode == -11:  # Segmentation fault
-                r = mid
-            else:
-                l = mid + 1
-        except subprocess.TimeoutExpired:
-            l = mid + 1
-    
 
-    if print_debug:
-        print(f"Minimum input size causing segfault: {l} bytes")
-    # remove fuzz_input
-    os.remove("fuzz_input")
-
-    return l+4
-
-def stdio_mode(vulnerable_program):
-
-    l=0
-    r=1000000000
-    while l < r:
-        mid = (l + r) // 2
-        input_data = b"A" * mid
-
-        
-
-        try:
-            # ignore stdout
-            result = subprocess.run([f"./{vulnerable_program}"], input=input_data, stdout=subprocess.DEVNULL, timeout=5)
-            
-            if result.returncode == -11:  # Segmentation fault
-                r = mid
-            else:
-                l = mid + 1
-        except subprocess.TimeoutExpired:
-            l = mid + 1
-    if print_debug:
-        print(f"Minimum input size causing segfault: {l} bytes")
-    return l+4
 
 def de_bruijn(n):
     try:
@@ -233,6 +172,7 @@ def find_if_fileinput(vulnerable_program, extra_flags=None):
         os.remove(filename)
 
     return is_file_mode
+
 def find_offset(vulnerable_program, fileinput=True, input_prefix=b"", extra_flags=[], print_debug=False):
     """
     Uses GDB to find the EIP offset.
