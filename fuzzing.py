@@ -6,6 +6,7 @@ import string
 import re
 import struct
 import argparse
+import time
 
 # def find_offset(vulnerable_program, fileinput=True):
 #     # either file inputs or stdio
@@ -17,7 +18,79 @@ import argparse
 #         return file_input_mode(vulnerable_program)
 #     else:
 #         return stdio_mode(vulnerable_program)
+def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
+    if print_debug:
+        print(f"[*] Starting Interactive Fuzzer on {vulnerable_program}...")
 
+    # The payload we want to inject (Cyclic Pattern)
+    # We add a newline at the end to ensure scanf triggers if it eats this
+    pattern_len = 5000
+    cyclic_pattern = generate_cyclic_pattern(pattern_len)
+    # Truncate to desired length
+    cyclic_pattern = cyclic_pattern[:pattern_len] + b"\n"
+
+    # We will try injecting the pattern at different "steps"
+    # Iteration 0: Pattern
+    # Iteration 1: 1\n + Pattern
+    # Iteration 2: 1\n + 1\n + Pattern
+    
+
+
+    for depth in range(max_depth):
+        if print_debug:
+            print(f"--- Attempting Depth: {depth} ---")
+        
+        # Start the process anew for every attempt
+        proc = subprocess.Popen(
+            [f"./{vulnerable_program}"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, # We can capture stdout to see prompts
+            stderr=subprocess.PIPE
+        )
+
+        try:
+            # 1. Send the "Menu Navigation" inputs (1\n)
+            for i in range(depth):
+                if proc.poll() is not None: break # Process already died
+                proc.stdin.write(b"1\n")
+                proc.stdin.flush()
+                # Tiny sleep to let the C program process the scanf
+                time.sleep(0.05) 
+
+            # 2. Check if it's still alive before sending the payload
+            if proc.poll() is None:
+                # 3. Send the PAYLOAD
+                if print_debug:
+                    print(f"    -> Sending {len(cyclic_pattern)} byte payload...")
+                proc.stdin.write(cyclic_pattern)
+                proc.stdin.flush()
+                
+                # 4. Wait a moment for the crash
+                time.sleep(0.2)
+            
+            # 5. Check return code
+            return_code = proc.poll()
+            
+            if return_code == -11:
+                if print_debug:
+                    print(f"\n[!!!] SEGFAULT DETECTED at Depth {depth}!")
+                    print(f"Payload structure: ('1\\n' * {depth}) + CYCLIC_PATTERN")
+                
+                # Create the reproduction file for GDB
+                prefix = (b"1\n" * depth) 
+
+                
+                proc.kill()
+                return depth,prefix
+            else:
+                print(f"    -> Process finished with code {return_code} (No Segfault)")
+                proc.kill()
+
+        except BrokenPipeError:
+            print("    -> Broken Pipe (Process died unexpectedly)")
+    if print_debug:
+        print("[-] No segfault found.")
+    return None
 
 def file_input_mode(vulnerable_program):
     
@@ -204,8 +277,8 @@ def find_offset(vulnerable_program, fileinput=True, input_prefix=b"", extra_flag
         "-ex", "info registers eip",
         target_args
     ]
-
     if print_debug:
+
         print(f"[*] Executing GDB: {' '.join(gdb_cmd)}")
 
     try:
@@ -250,6 +323,7 @@ def find_offset(vulnerable_program, fileinput=True, input_prefix=b"", extra_flag
     except subprocess.TimeoutExpired:
         if print_debug:
             print("[-] GDB Timed out.")
+        
         return -1
     except Exception as e:
         print(f"[-] Error: {e}")
@@ -257,7 +331,8 @@ def find_offset(vulnerable_program, fileinput=True, input_prefix=b"", extra_flag
     finally:
         if os.path.exists(fuzz_filename):
             try:
-                os.remove(fuzz_filename)
+                pass
+                # os.remove(fuzz_filename)
             except:
                 pass
 
@@ -278,6 +353,8 @@ def fuzz(vulnerable_program, fileinput=None, input_template=None, flags=None, pr
         print(f"[-] Error: Vulnerable program '{vulnerable_program}' does not exist.")
         sys.exit(1)
 
+    total_prefix=b""
+
     # 2. Parse Flags
     # Ensure flags is a list
     if flags is None:
@@ -296,7 +373,8 @@ def fuzz(vulnerable_program, fileinput=None, input_template=None, flags=None, pr
     else:
         prefix_bytes = input_template
 
-    base_prefix= prefix_bytes
+    
+    total_prefix= prefix_bytes
 
     # 4. Detect Mode (if not provided)
     if fileinput is None:
@@ -315,7 +393,7 @@ def fuzz(vulnerable_program, fileinput=None, input_template=None, flags=None, pr
         max_depth = brute_depth
         if print_debug:
             print(f"[*] User specified max depth: {max_depth}")
-    elif input_template is not None:
+    elif input_template is not None or is_file_mode:
         max_depth = 0
         if print_debug:
             print(f"[*] Template provided. Disabling depth brute-force (Depth: 0).")
@@ -325,48 +403,29 @@ def fuzz(vulnerable_program, fileinput=None, input_template=None, flags=None, pr
             print(f"[*] No template provided. Activating Blind Fuzzing (Max Depth: {max_depth}).")
 
     # 4. The Loop
-    pad_char = b"1\n" 
+    
+    
+    if max_depth:
+        amount, depth_prefix = interactive_fuzz(vulnerable_program,max_depth,print_debug)
+        if amount:
+            total_prefix=depth_prefix
 
-    for i in range(max_depth + 1):
-        current_padding = pad_char * i
-        total_prefix = base_prefix + current_padding
-        
-        # Fancy carriage return printing so we don't spam the console
-        sys.stdout.write(f"    -> Scanning depth {i} (Prefix: {len(total_prefix)} bytes)... \r")
-        sys.stdout.flush()
-        
-        offset = find_offset(
-            vulnerable_program, 
-            fileinput=is_file_mode, 
-            input_prefix=total_prefix, 
-            extra_flags=extra_flags,
-            print_debug=False # Only prints on success
-        )
+    
 
-        if offset != -1:
-            if print_debug:
-                offset = find_offset(
-                vulnerable_program, 
-                fileinput=is_file_mode, 
-                input_prefix=total_prefix, 
-                extra_flags=extra_flags,
-                print_debug=True # Only prints on success
-                )
-                
-            return i,offset
-    if print_debug:
-        print(f"\n[-] Fuzzing finished. No crash detected within depth {max_depth}.")
-    return None
-    # 5. Run Fuzzing
     offset = find_offset(
         vulnerable_program, 
         fileinput=is_file_mode, 
-        input_prefix=prefix_bytes, 
+        input_prefix=total_prefix, 
         extra_flags=extra_flags,
         print_debug=print_debug
     )
 
-    return offset
+    if offset != -1:    
+        return total_prefix,offset
+    if print_debug:
+        print(f"\n[-] Fuzzing finished. No crash detected within depth {max_depth}.")
+    return total_prefix,None
+
 
 
 
