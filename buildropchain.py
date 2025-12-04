@@ -120,7 +120,7 @@ class ROPChainBuilder:
         
         return chain
         
-    def build_chain(self, commands, offset):
+    def build_chain(self, commands):
         stack_cursor = struct.unpack("<I", self.stack_addr_bytes)[0]
 
         buff = b""

@@ -105,7 +105,7 @@ if __name__ == "__main__":
     
     # B. Build ROP Chain
     chain_builder = brc.ROPChainBuilder(args.program, gadgets)
-    rop_chain = chain_builder.build_chain(args.commands, offset)
+    rop_chain = chain_builder.build_chain(args.commands)
     
     # C. Combine
     # [ Menu Inputs | Brute-Force-Inputs] + [ Junk to reach EIP ] + [ ROP Chain ]

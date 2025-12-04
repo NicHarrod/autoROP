@@ -11,7 +11,7 @@ import time
 
 def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
     if print_debug:
-        print(f"[*] Starting Interactive Fuzzer on {vulnerable_program}...")
+        print(f"Starting Interactive Fuzzer on {vulnerable_program}...")
 
 
     pattern_len = 5000
@@ -28,7 +28,7 @@ def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
 
     for depth in range(max_depth):
         if print_debug:
-            print(f"--- Attempting Depth: {depth} ---")
+            print(f"Depth: {depth} ---")
         
         # Start the process for every attempt
         proc = subprocess.Popen(
@@ -130,17 +130,18 @@ def parse_input_template(template_str):
     if not template_str:
         return b""
     try:
-        # This converts literal "\x41" or "\n" strings to actual bytes
-        # encode('latin-1') and decode('unicode_escape') is a common python trick
-        # or we can use literal_eval for complex types, but bytes(x, 'utf-8') is safer for raw CLI
+        # This converts literal "\x41" or "\n" strings to bytes
         return bytes(template_str, "utf-8").decode("unicode_escape").encode("latin-1")
     except Exception:
         # Fallback for simple strings
         return template_str.encode()
 
 def find_if_fileinput(vulnerable_program, extra_flags=None):
-    # Create a large payload to trigger potential crashes
-    payload = b"A" * 1000000000 
+    """
+    Determines if the vulnerable input takes a file argument or stdin.
+    """
+
+    payload = b"A" * 1000000
     filename = "fuzz_input"
     
     with open(filename, "wb") as f:
@@ -179,7 +180,7 @@ def find_offset(vulnerable_program, fileinput=True, input_prefix=b"", extra_flag
     input_prefix: Bytes to send BEFORE the crash pattern (e.g. menu selections).
     """
     if print_debug:
-        print("[*] Starting Cyclic Fuzzing with De Bruijn Sequence...")
+        print("Starting Cyclic Fuzzing with De Bruijn Sequence...")
 
     # Pattern generation
     pattern_len = 5000
@@ -193,7 +194,7 @@ def find_offset(vulnerable_program, fileinput=True, input_prefix=b"", extra_flag
         f.write(full_payload)
 
     # Construct GDB Command
-    # We use --batch to run GDB non-interactively
+    # Using --batch to run GDB non-interactively
     
     run_cmd = ""
     target_args = f"./{vulnerable_program}"
@@ -342,8 +343,7 @@ def fuzz(vulnerable_program, fileinput=None, input_template=None, flags=None, pr
         if print_debug:
             print(f"[*] No template provided. Activating Blind Fuzzing (Max Depth: {max_depth}).")
 
-    # 4. The Loop
-    
+
     
     if max_depth:
         amount, depth_prefix = interactive_fuzz(vulnerable_program,max_depth,print_debug)
